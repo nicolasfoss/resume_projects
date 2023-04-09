@@ -41,3 +41,17 @@ This project required me to manipulate data frames using dplyr and make plots us
 How do musicians choose the chords they use in their songs? Do guitarists, pianists, and singers gravitate towards different kinds of harmony?
 
 We can uncover trends in the kinds of chord progressions used by popular artists by analyzing the harmonic data provided in the McGill Billboard Dataset [https://ddmal.music.mcgill.ca/research/The_McGill_Billboard_Project_(Chord_Analysis_Dataset)]. This dataset includes professionally tagged chords for several hundred pop/rock songs representative of singles that made the Billboard Hot 100 list between 1958 and 1991. Using the data-wrangling tools available in the dplyr package, and the visualization tools available in the ggplot2 package, I explored the most common chords and chord progressions in these songs, and contrast the harmonies of some guitar-led and piano-led artists to see where the "affordances" of those instruments may affect the chord choices artists make.
+
+## Visualizing Inequalities in Life Expectancy
+
+Do women live longer than men? How long? Does it happen everywhere? Is life expectancy increasing? Everywhere? Which is the country with the lowest life expectancy? Which is the one with the highest? In this project, I answered all these questions by manipulating and visualizing United Nations life expectancy data using ggplot2.
+
+The dataset can be found here (http://data.un.org/Data.aspx?d=GenderStat&f=inID:37&c=1,2,3,4,5,6&s=crEngName:asc,sgvEngName:asc,timeEngName:desc&v=1) and contains the average life expectancies of men and women by country (in years). It covers four periods: 1985-1990, 1990-1995, 1995-2000, and 2000-2005.
+
+## Scout your Athletics Fantasy Team
+
+If you were scouting out an athletics team, you would need to know more than just how far each person has jumped or thrown once. You want to know who is the most consistent, who fouls the least and who comes through in the clutch. And you will need to decide which aspects are most important to you so you can find the right balance.
+
+In this R project, I used dataframes and the dplyr package to find out who you should put on your team, and in doing so become the next "Moneyball" star manager of an athletics team.
+
+I used performance data collated from jumps and throws events in the US from 2013-2017.
