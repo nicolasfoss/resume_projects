@@ -55,3 +55,9 @@ If you were scouting out an athletics team, you would need to know more than jus
 In this R project, I used dataframes and the dplyr package to find out who you should put on your team, and in doing so become the next "Moneyball" star manager of an athletics team.
 
 I used performance data collated from jumps and throws events in the US from 2013-2017.
+
+## What Your Heart Rate Is Telling You
+
+Heart disease is the leading cause of death in the United States. Researchers are using several data mining techniques to help health care professionals in the diagnosis of heart disease. In this project, I examined the relationship between the maximum heart rate one can achieve during exercise and the likelihood of developing heart disease. Using multiple logistic regression, I handled the confounding effects of age and gender.
+
+This project uses the Cleveland heart disease dataset.
