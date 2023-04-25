@@ -61,3 +61,13 @@ I used performance data collated from jumps and throws events in the US from 201
 Heart disease is the leading cause of death in the United States. Researchers are using several data mining techniques to help health care professionals in the diagnosis of heart disease. In this project, I examined the relationship between the maximum heart rate one can achieve during exercise and the likelihood of developing heart disease. Using multiple logistic regression, I handled the confounding effects of age and gender.
 
 This project uses the Cleveland heart disease dataset.
+
+## Predict Taxi Fares with Random Forests
+
+In this project, I worked with the data from a large number of taxi journeys in New York from 2013. I used regression trees and random forests to predict the value of fares and tips, based on location, date and time. This project shows my experience with the packages dplyr, ggplot2 and randomForests.
+
+The dataset used in this project is a sample from the complete 2013 NYC taxi data (https://chriswhong.com/open-data/foil_nyc_taxi/), which was originally obtained and published by Chris Whong.
+
+## 538's Halloween Candy Rankings
+
+This project is all about Halloween candy! I explored FiveThirtyEight's Halloween Candy dataset (https://data.fivethirtyeight.com/) and learned what kinds of data it contains. I then fitted and evaluated linear and logistic regression models. 
