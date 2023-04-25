@@ -71,3 +71,7 @@ The dataset used in this project is a sample from the complete 2013 NYC taxi dat
 ## 538's Halloween Candy Rankings
 
 This project is all about Halloween candy! I explored FiveThirtyEight's Halloween Candy dataset (https://data.fivethirtyeight.com/) and learned what kinds of data it contains. I then fitted and evaluated linear and logistic regression models. 
+
+## Who Is Drunk and When in Ames, Iowa?
+
+Using data collected from the State of Iowa, I grouped, summarized, and visualized data on breath alcohol tests in Ames, Iowa, (home of Iowa State University) from 2013-2017. Some questions I answered included, "What is the highest recorded value?" and "When do breath alcohol tests occur most?"
