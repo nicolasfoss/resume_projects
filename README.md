@@ -75,3 +75,9 @@ This project is all about Halloween candy! I explored FiveThirtyEight's Hallowee
 ## Who Is Drunk and When in Ames, Iowa?
 
 Using data collected from the State of Iowa, I grouped, summarized, and visualized data on breath alcohol tests in Ames, Iowa, (home of Iowa State University) from 2013-2017. Some questions I answered included, "What is the highest recorded value?" and "When do breath alcohol tests occur most?"
+
+## Drunken Datetimes in Ames, Iowa
+
+In the Who Is Drunk and When in Ames, Iowa? project, I looked at breathalyzer test data from the State of Iowa. In this project, I will proceeded to uncover temporal trends in the Ames breath alcohol data.
+
+This project required familiarity with lubridate, dplyr, and ggplot2 packages. I manipulated the dates and times in the breath alcohol data to answer questions such as, "What day has the most tests?", "at which hour of the day are breath alcohol tests most common?", and "are blood alcohol content (BAC) results higher on days when Iowa State University's football team plays?"  This project included the use of the package ggridges to create insightful plots on the distribution of breath alcohol tests by hours of the day across the dataset.
