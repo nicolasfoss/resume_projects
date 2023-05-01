@@ -1,0 +1,499 @@
+###_____________________________________________________________________________
+### Analyze SAMHSA data to find national and local trends.
+### Look at SUD / MH admit data alongside overdose death data to see how 
+### treatment rates compared to overdose deaths.
+###_____________________________________________________________________________
+
+###_____________________________________________________________________________
+# Set the working directory.
+###_____________________________________________________________________________
+
+setwd("C:/Users/13193/Desktop/R/SAMHSA_Admission_Discharge_Overdose_Deaths/")
+
+###_____________________________________________________________________________
+### Install packages.
+###_____________________________________________________________________________
+
+install.packages(c("tidyverse", "ggridges"))
+install.packages("patchwork")
+library(viridis)
+library(tidyverse)
+library(broom)
+library(naniar)
+library(scales)
+library(ggthemes)
+library(ggfortify)
+library(randomForest)
+library(lubridate)
+library(patchwork)
+
+# Deal nicely with scientific notation in your plots!
+
+options(scipen = 999)
+
+###_____________________________________________________________________________
+### Read in files.
+###_____________________________________________________________________________
+
+#_____________________________________________________________________________
+# CDC overdose death files.
+#_____________________________________________________________________________
+
+# training set.
+
+OD_deaths <- read_csv("VSRR_Provisional_Drug_Overdose_Death_Counts_Drug_Class.csv",
+                      col_select = c(2:3,5:6,9)
+                      )
+
+OD_deaths_clean <- OD_deaths %>% 
+  filter(`State Name` %in% c("Illinois", "Indiana", "Iowa", "Kansas", "Michigan",
+                             "Minnesota", "Missouri", "Nebraska", "North Dakota",
+                             "Ohio", "South Dakota", "Wisconsin"),
+         Indicator != 'Percent with drugs specified',
+         Year %in% c(2015:2020)
+         ) %>% 
+  mutate(`State Name` = factor(`State Name`, levels = c("Illinois", "Indiana", "Iowa", "Kansas", "Michigan",
+                                                        "Minnesota", "Missouri", "Nebraska", "North Dakota",
+                                                        "Ohio", "South Dakota", "Wisconsin")
+                               )
+         ) %>% 
+  pivot_wider(names_from = Indicator, values_from = `Data Value`) %>% 
+  relocate('Heroin (T40.1)', .after = `State Name`) %>% 
+  relocate('Natural & semi-synthetic opioids (T40.2)', .after = 'Heroin (T40.1)') %>% 
+  relocate('Methadone (T40.3)', .after = 'Natural & semi-synthetic opioids (T40.2)') %>% 
+  relocate('Synthetic opioids, excl. methadone (T40.4)', .after = 'Methadone (T40.3)') %>%
+  relocate('Cocaine (T40.5)', .after = 'Synthetic opioids, excl. methadone (T40.4)') %>% 
+  relocate('Psychostimulants with abuse potential (T43.6)', .after = 'Cocaine (T40.5)') %>% 
+  relocate('Number of Deaths', .after = last_col()) %>% 
+  relocate('Number of Drug Overdose Deaths', .before = last_col()) %>% 
+  group_by(Year, `State Name`) %>%
+  summarize(
+    Heroin = sum(`Heroin (T40.1)`, na.rm = TRUE),
+    Natural_semi_synthetic_opioids = sum(`Natural & semi-synthetic opioids (T40.2)`, na.rm = TRUE),
+    Methadone = sum(`Methadone (T40.3)`, na.rm = TRUE),
+    Synthetic_opioids = sum(`Synthetic opioids, excl. methadone (T40.4)`, na.rm = TRUE),
+    Cocaine = sum(`Cocaine (T40.5)`, na.rm = TRUE),
+    Psychostimulants = sum(`Psychostimulants with abuse potential (T43.6)`, na.rm = TRUE),
+    All_opioids = sum(`Opioids (T40.0-T40.4,T40.6)`, na.rm = TRUE),
+    Total_Overdose_Deaths = sum(`Number of Drug Overdose Deaths`, na.rm = TRUE),
+    Total_Deaths = sum(`Number of Deaths`, na.rm = TRUE),
+    .groups = "keep"
+    ) %>% 
+  rename(State = 'State Name') %>% 
+  ungroup()
+
+# test set.
+
+OD_deaths_test <- OD_deaths %>% 
+  filter(`State Name` %in% c("Illinois", "Indiana", "Iowa", "Kansas", "Michigan",
+                             "Minnesota", "Missouri", "Nebraska", "North Dakota",
+                             "Ohio", "South Dakota", "Wisconsin"),
+         Indicator != 'Percent with drugs specified',
+         Year %in% c(2021:2022)
+  ) %>% 
+  mutate(`State Name` = factor(`State Name`, levels = c("Illinois", "Indiana", "Iowa", "Kansas", "Michigan",
+                                                        "Minnesota", "Missouri", "Nebraska", "North Dakota",
+                                                        "Ohio", "South Dakota", "Wisconsin")
+  )
+  ) %>% 
+  pivot_wider(names_from = Indicator, values_from = `Data Value`) %>% 
+  relocate('Heroin (T40.1)', .after = `State Name`) %>% 
+  relocate('Natural & semi-synthetic opioids (T40.2)', .after = 'Heroin (T40.1)') %>% 
+  relocate('Methadone (T40.3)', .after = 'Natural & semi-synthetic opioids (T40.2)') %>% 
+  relocate('Synthetic opioids, excl. methadone (T40.4)', .after = 'Methadone (T40.3)') %>%
+  relocate('Cocaine (T40.5)', .after = 'Synthetic opioids, excl. methadone (T40.4)') %>% 
+  relocate('Psychostimulants with abuse potential (T43.6)', .after = 'Cocaine (T40.5)') %>% 
+  relocate('Number of Deaths', .after = last_col()) %>% 
+  relocate('Number of Drug Overdose Deaths', .before = last_col()) %>% 
+  group_by(Year, `State Name`) %>%
+  summarize(
+    Heroin = sum(`Heroin (T40.1)`, na.rm = TRUE),
+    Natural_semi_synthetic_opioids = sum(`Natural & semi-synthetic opioids (T40.2)`, na.rm = TRUE),
+    Methadone = sum(`Methadone (T40.3)`, na.rm = TRUE),
+    Synthetic_opioids = sum(`Synthetic opioids, excl. methadone (T40.4)`, na.rm = TRUE),
+    Cocaine = sum(`Cocaine (T40.5)`, na.rm = TRUE),
+    Psychostimulants = sum(`Psychostimulants with abuse potential (T43.6)`, na.rm = TRUE),
+    All_opioids = sum(`Opioids (T40.0-T40.4,T40.6)`, na.rm = TRUE),
+    Total_Overdose_Deaths = sum(`Number of Drug Overdose Deaths`, na.rm = TRUE),
+    Total_Deaths = sum(`Number of Deaths`, na.rm = TRUE),
+    .groups = "keep"
+  ) %>% 
+  rename(State = 'State Name') %>% 
+  ungroup()
+
+#_____________________________________________________________________________
+# SAMHSA admission files.
+#_____________________________________________________________________________
+
+# Get numbered colnames so that it is easier to choose the ones I want.
+
+read_csv("tedsa_puf_2015.csv",
+         n_max = 0
+         ) %>% 
+  names() %>% 
+  as.data.frame()
+
+# Define columns of interest due to file size.
+
+selected_cols <- c(1:3, 13:14, 15:16, 21:23, 41, 43:44, 46, 49:51, 60:62) # SAMHSA's SUD admit files have same colnames.
+
+#Midwest defined by SAMHSA as:
+# East North Central Division (Illinois, Indiana, Michigan, Ohio, Wisconsin)
+# West North Central Division (Iowa,Kansas, Minnesota, Missouri, Nebraska, North Dakota, South Dakota).
+
+###_____________________________________________________________________________
+### Create a function to quickly summarize each dataframe for speed in processing 
+### and moving quickly to plotting.
+###_____________________________________________________________________________
+
+summarize_df <- function(df) {
+  df_summarized <- df %>%
+    filter(STFIPS %in% c(17:20, 26:27, 29, 31, 38:39, 46, 55)) %>% # just focus on the Midwest, region 2.
+    mutate(Alcohol_only = if_else(ALCDRUG == 1, "Yes", "No"),
+           Other_drugs_only = if_else(ALCDRUG == 2, "Yes", "No"),
+           Alcohol_and_drugs = if_else(ALCDRUG == 3, "Yes", "No")) %>% 
+    group_by(ADMYR, STFIPS) %>%
+    summarize(Admissions = n(),
+              Alcohol_only = mean(Alcohol_only == "Yes"),
+              Other_drugs_only = mean(Other_drugs_only == "Yes"),
+              Alcohol_and_drugs = mean(Alcohol_and_drugs == "Yes"),
+              Alcohol = mean(ALCFLG == 1),
+              Cannabis = mean(MARFLG == 1),
+              Heroin = mean(HERFLG == 1),
+              Other_Opioids = mean(OPSYNFLG == 1),
+              Meth = mean(MTHAMFLG == 1),
+              Other_Stimulants = (mean(AMPHFLG == 1) + mean(STIMFLG == 1)),
+              Injection_Use = mean(IDU == 1),
+              .groups = "keep"
+    ) %>%
+    ungroup() %>% 
+    rename(Year = ADMYR, State = STFIPS) %>% 
+    mutate(State = factor(State, 
+                          levels = c(17,18,19,20,26,27,29,31,38,39,46,55),
+                          labels = c("Illinois", "Indiana", "Iowa", "Kansas", "Michigan",
+                                     "Minnesota", "Missouri", "Nebraska", "North Dakota",
+                                     "Ohio", "South Dakota", "Wisconsin"
+                          )
+    )
+    ) %>% 
+    mutate(across(4:13, function(x) round(x, digits = 2))
+    )
+  
+  return(df_summarized)
+  
+}
+
+###_____________________________________________________________________________
+### Get files - SUD specific.
+### Read in separately for the sake of speed.
+### use custom function to create the summarized data.frames.
+### Bind the summarized data.frames for plots of the aggregate data.
+###_____________________________________________________________________________
+
+# read in and summarize 2015.
+
+SUD_admit_2015 <- read_csv("tedsa_puf_2015.csv",
+                           col_select = all_of(selected_cols)
+                           )
+
+SUD_admit_2015_summarized <- summarize_df(SUD_admit_2015)
+
+# read in and summarize 2016.
+
+SUD_admit_2016 <- read_csv("tedsa_puf_2016.csv",
+                           col_select = all_of(selected_cols)
+                           )
+
+SUD_admit_2016_summarized <- summarize_df(SUD_admit_2016)
+
+# read in and summarize 2017.
+
+SUD_admit_2017 <- read_csv("tedsa_puf_2017.csv",
+                           col_select = all_of(selected_cols)
+                           )
+
+SUD_admit_2017_summarized <- summarize_df(SUD_admit_2017)
+
+# read in and summarize 2018.
+
+SUD_admit_2018 <- read_csv("tedsa_puf_2018.csv",
+                           col_select = all_of(selected_cols)
+                           )
+
+SUD_admit_2018_summarized <- summarize_df(SUD_admit_2018)
+
+# read in and summarize 2019.
+
+SUD_admit_2019 <- read_csv("tedsa_puf_2019.csv",
+                           col_select = all_of(selected_cols)
+                           )
+
+SUD_admit_2019_summarized <- summarize_df(SUD_admit_2019)
+
+# read in and summarize 2020.
+
+SUD_admit_2020 <- read_csv("TEDSA_PUF_2020.csv",
+                           col_select = all_of(selected_cols)
+                           )
+
+SUD_admit_2020_summarized <- summarize_df(SUD_admit_2020)
+
+# Bind rows for the summarize dfs.
+
+SUD_admit_2015_2020 <- bind_rows(SUD_admit_2015_summarized, 
+                                 SUD_admit_2016_summarized, 
+                                 SUD_admit_2017_summarized,
+                                 SUD_admit_2018_summarized,
+                                 SUD_admit_2019_summarized,
+                                 SUD_admit_2020_summarized
+                                 )
+
+# Perform a join of the two main data.frames to then plot.
+
+SUD_admit_deaths <- SUD_admit_2015_2020 %>% 
+  left_join(OD_deaths_clean, 
+            by = c("Year", "State"), 
+            suffix = c("_admit", "_deaths")
+            )
+
+###_____________________________________________________________________________
+### Plots.
+###_____________________________________________________________________________
+
+# Check the distribution of the variables first.
+
+par(mfrow = c(3,2))
+with(OD_deaths_clean, hist(Total_Overdose_Deaths))
+with(OD_deaths_clean, hist(All_opioids))
+with(OD_deaths_clean, plot(density(Total_Overdose_Deaths)))
+with(OD_deaths_clean, plot(density(All_opioids)))
+with(OD_deaths_clean, plot(factor(Year), Total_Overdose_Deaths)) # a box plot!!
+with(OD_deaths_clean, plot(factor(Year), All_opioids)) # again!!
+
+dev.off() # reset params after par(mfrow) call.
+
+# similar distributions, boxplots show an alarming growth in opioid deaths.
+
+# first section of plots.
+
+# create data.frame arranged by state with highest opioid deaths (bar graph)
+# add geom_segment geom_point combo for lollipop plot for heroin deaths.
+
+SUD_admit_deaths_arranged <- SUD_admit_deaths %>%
+  group_by(State) %>% 
+  summarize(Admissions = sum(Admissions),
+            All_opioids = sum(All_opioids),
+            Total_Overdose_Deaths = sum(Total_Overdose_Deaths),
+            Heroin_deaths = sum(Heroin_deaths)
+  ) %>% 
+  ungroup() %>% 
+  mutate(State = as.character(State)) %>% 
+  arrange(desc(All_opioids))
+
+
+# plot 1, descending plot of opioid overdose deaths
+
+p1 <- ggplot(data = SUD_admit_deaths_arranged) + 
+  geom_col(aes(x = State, y = All_opioids, fill = State),
+           position = "dodge",
+           width = 0.5,
+           color = "black"
+  ) + 
+  labs(title = "Midwest Opioid Overdose Deaths 2015 - 2020\nBy Descending Order of Overdose Deaths",
+       subtitle = "East North Central Division (Illinois, Indiana, Michigan, Ohio, Wisconsin)\nWest North Central Division (Iowa,Kansas, Minnesota, Missouri, Nebraska, North Dakota, South Dakota)",
+       x = "",
+       y = ""
+  ) +
+  coord_flip() +
+  guides(fill = FALSE) +
+  scale_x_discrete(limits = rev(unique(SUD_admit_deaths_arranged$State))) +
+  scale_fill_viridis(discrete = TRUE,
+                     option = "turbo") +
+  theme_clean()
+
+# plot 2, descending plot of overall SUD admissions.
+
+SUD_admit_arranged <- SUD_admit_deaths %>%
+  group_by(State) %>% 
+  summarize(Admissions = sum(Admissions)
+  ) %>% 
+  ungroup() %>% 
+  mutate(State = as.character(State)) %>% 
+  arrange(desc(Admissions))
+
+p2 <- ggplot(data = SUD_admit_arranged) + 
+  geom_col(aes(x = State, y = Admissions, fill = State),
+           color = "black",
+           width = 0.5,
+           position = "dodge"
+  ) + 
+  labs(title = "Midwest Opioid SUD Admissions 2015 - 2020\nBy Descending Order of Admissions",
+       subtitle = "East North Central Division (Illinois, Indiana, Michigan, Ohio, Wisconsin)\nWest North Central Division (Iowa,Kansas, Minnesota, Missouri, Nebraska, North Dakota, South Dakota)",
+       x = "",
+       y = ""
+  ) +
+  coord_flip() +
+  guides(fill = FALSE) +
+  scale_x_discrete(limits = rev(unique(SUD_admit_arranged$State))) +
+  scale_fill_viridis(discrete = TRUE,
+                     option = "turbo") +
+  theme_clean()
+
+# New section of plots.
+# new data manipulation.
+
+SUD_admit_deaths_totals <- SUD_admit_deaths %>%
+  group_by(Year) %>% 
+  summarize(Admissions = sum(Admissions),
+            All_opioids = sum(All_opioids),
+            Total_Overdose_Deaths = sum(Total_Overdose_Deaths)
+  ) %>% 
+  ungroup()
+
+# plot 3, plotting opioid overdose deaths along with total overdose deaths in the Midwest.
+
+p3 <- ggplot(data = SUD_admit_deaths_totals) + 
+  geom_line(aes(x = Year, y = All_opioids),
+            color = "darkred",
+            alpha = 0.8,
+            linewidth = 2.5,
+            arrow = arrow(length = unit(1, "cm")
+            )
+  ) +
+  labs(title = "Midwest Total Overdose Deaths and Opioid Overdose Deaths 2015 - 2020",
+       subtitle = "East North Central Division (Illinois, Indiana, Michigan, Ohio, Wisconsin)\nWest North Central Division (Iowa,Kansas, Minnesota, Missouri, Nebraska, North Dakota, South Dakota)",
+       x = "",
+       y = "# of Drug Overdose Deaths",
+       caption = "***Columns are total drug overdose deaths in the Midwest 2015 - 2020\n***Line represents total opioid overdose deaths per year 2015-2020 in the Midwest"
+  ) +
+  geom_col(aes(x = Year, y = Total_Overdose_Deaths),
+           color = alpha("orange", 0.3), 
+           fill = alpha("lightgray", 0.1)
+  ) + 
+  theme_clean() +
+  theme(plot.caption = element_text(hjust = 0))
+
+# plot 4, plot of admissions year over year.
+
+p4 <- ggplot(data = SUD_admit_deaths_totals) + 
+  geom_line(aes(x = Year, y = Admissions),
+            color = "steelblue",
+            alpha = 0.8,
+            linewidth = 2.5,
+            arrow = arrow(length = unit(1, "cm")
+            )) +
+  labs(title = "Midwest SUD Treatment Admissions 2015 - 2020",
+       subtitle = "East North Central Division (Illinois, Indiana, Michigan, Ohio, Wisconsin)\nWest North Central Division (Iowa,Kansas, Minnesota, Missouri, Nebraska, North Dakota, South Dakota)",
+       x = "",
+       y = "Admissions"
+  ) +
+  theme_clean()
+
+# Create the list of plots and then use patchwork to make a dashboard.
+
+all_plots <- list(p1, p2, p3, p4) # list
+
+wrap_plots(all_plots, ncol = 2, nrow = 2) # dashboard
+
+###____________________________________________________________________________
+# Is there a correlation between admissions and overdose deaths?
+###____________________________________________________________________________
+
+paste0("There is a n r = ", with(SUD_admit_deaths, round(cor(Total_Overdose_Deaths, Admissions), digits = 6)),
+       " correlation between SUD admissions and Overdose deaths in the U.S. Midwest from 2015-2020"
+       )
+
+###_____________________________________________________________________________
+# "There is a n r = 0.542304 correlation between SUD admissions and Overdose deaths 
+# in the U.S. Midwest from 2015-2020"
+# Moderate and positive correlation, indicating that admissions do not seem to 
+# follow overdose deaths very closely, but they do increase together.
+# Now let's fit a linear regression model to these data to find relationships.
+###_____________________________________________________________________________
+
+###_____________________________________________________________________________
+### Linear model.
+###_____________________________________________________________________________
+
+death_model <- lm(Total_Overdose_Deaths ~ All_opioids, data = OD_deaths_clean)
+
+summary(death_model) # very small p value where p < 0.001.
+
+autoplot(death_model, which = 1:4) # errors are not normally distributed
+
+# check the model's features
+
+tidy(death_model)
+augment(death_model)
+glance(death_model) # strong r^2 value indicating apprx. 
+                    # 80% of the variance is explaind by the model.
+
+# Plot the predictions based on the model to gauge performance.
+
+death_pred1 <- predict(death_model, OD_deaths_test)
+
+OD_deaths_test_p <- OD_deaths_test %>% 
+  mutate(Total_Overdose_Deaths_Predicted = death_pred1)
+
+# Plot the predictions along with actual OD death values.
+
+ggplot(OD_deaths_test_p, aes(All_opioids, Total_Overdose_Deaths)) + 
+  geom_line(color = "red",
+            alpha = 0.5,
+            linewidth = 2
+             ) + # truth colored in red, normal points.
+  geom_point(aes(y = Total_Overdose_Deaths_Predicted), #predictions in yellow, larger points.
+             color = "yellow",
+             size = 2.25,
+             shape = 2,
+             alpha = 0.5
+             ) + 
+  geom_text(aes(x = 10000, y = 40000, label = "Predicted values in yellow\nfor 2021-2022 Midwestern\nTotal Overdose Deaths"),
+            color = "yellow",
+            size = 5,
+            fontface = "bold"
+            ) +
+  theme_dark() # The model performs reasonably well.
+
+###_____________________________________________________________________________
+# The model could be improved by possibly using the monthly data.
+# Another way to improve the model could be adding other variables, such as
+# each type of opioid with the stimulants.  However, problems with data quality
+# from the states added noise to the model unescapably.
+# The SAMHSA data is reported annually and so the admissions ~ opioid OD deaths
+# model is not possible with these data sets.  
+###_____________________________________________________________________________
+  
+###_____________________________________________________________________________
+# Noise in the model seems to be making it difficult to predict future deaths with
+# better accuracy. 20% of the variance is not explained by the model.
+# CDC does discuss concerns about missingness in the data and incomplete reporting.
+# There are several years for which there are still investigations into the
+# reported data with some states having more issues than others.
+# Let's see if overdose deaths seem to predict an increase in admissions
+###_____________________________________________________________________________
+
+# check the distribution of Admissions.
+
+par(mfrow = c(3,1))
+with(SUD_admit_deaths, hist(Admissions)) # positive skewness
+with(SUD_admit_deaths, plot(density(Admissions), col = "red", lwd = 2))
+with(SUD_admit_deaths, plot(x = factor(Year), y = Admissions))
+
+# admissions model
+
+admissions_model <- lm(Admissions ~ Total_Overdose_Deaths, data = SUD_admit_deaths)
+
+summary(admissions_model) # small p value 0.0000008635
+glance(admissions_model) # weak r^2 at .284.
+autoplot(admissions_model, which = 1:4) # errors are not normally distributed
+
+###_____________________________________________________________________________
+# The relationship is moderate and positive between admissions and 
+# total overdose deaths indicating that admissions are somewhat keeping pace
+# with overdose deaths, the model cannot explain the variance in Admissions well.
+# This research indicates that overdose deaths are outpacing admissions and
+# that states and treatment programs may need to look at alternative ways of 
+# responding to the addiction crisis in America rather than traditional silo
+# treatment models.
+###_____________________________________________________________________________
